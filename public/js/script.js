@@ -21,7 +21,7 @@ no_button.addEventListener('click', () => {
     // Change banner source
     let banner = document.getElementById('banner');
     if (clicks === 0) {
-        banner.src = "public/images/no.gif";
+        banner.src = "https://tenor.com/en-GB/view/bubu-bubu-dudu-bubbu-bear-bhalu-gif-12782870542608816906";
         refreshBanner();
     }
     clicks++;
@@ -51,7 +51,7 @@ no_button.addEventListener('click', () => {
 yes_button.addEventListener('click', () => {
     // Change banner gif path
     let banner = document.getElementById('banner');
-    banner.src = "public/images/yes.gif";
+    banner.src = "https://media.tenor.com/gUiu1zyxfzYAAAAi/bear-kiss-bear-kisses.gif";
     refreshBanner();
     // Hide buttons div
     let buttons = document.getElementsByClassName('buttons')[0];
