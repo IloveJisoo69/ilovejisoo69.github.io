@@ -1,26 +1,1044 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Import Question</title>
-    <link rel="stylesheet" href="public/css/style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <div class="banner-gif">
-        <img id="banner" src="public/images/flowers-for-you.gif" alt="banner" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D ASCII Flower Bouquet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    /* Custom terminal viewport styling to ensure crisp 2:1 monospace aspect ratio and zero scrollbars */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #0b0b10;
+      color: #e4e4e7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #terminal-stage {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+      font-variant-ligatures: none;
+      white-space: pre;
+      line-height: 1.15;
+      letter-spacing: 0px;
+      text-rendering: optimizeSpeed;
+    }
+
+    /* Hidden span used for exact monospace glyph metrics calculation */
+    #glyph-probe {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+      font-variant-ligatures: none;
+      line-height: 1.15;
+      letter-spacing: 0px;
+      position: absolute;
+      visibility: hidden;
+      pointer-events: none;
+      white-space: pre;
+    }
+
+    /* Subtle glassmorphism control bar */
+    .glass-panel {
+      background: rgba(18, 18, 26, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 135, 175, 0.18);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    }
+
+    input[type="text"] {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+  </style>
+</head>
+<body class="relative w-full h-full flex items-center justify-center bg-[#0b0b10]">
+
+  <!-- Probe element for measuring exact monospace character cell width & height -->
+  <span id="glyph-probe">MMMMMMMMMM</span>
+
+  <!-- Main ASCII Render Viewport -->
+  <main id="viewport-container" class="w-full h-full flex items-center justify-center overflow-hidden p-1 sm:p-2">
+    <pre id="terminal-stage" aria-label="3D Rotating ASCII Flower Bouquet"></pre>
+  </main>
+
+  <!-- Floating Toggle Button (when controls are collapsed) -->
+  <button
+    id="open-controls-btn"
+    type="button"
+    title="Customize Bouquet"
+    class="hidden fixed top-3 right-3 z-30 glass-panel text-pink-200 hover:text-white hover:border-pink-400/50 transition-all rounded-full px-3.5 py-2 text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+  >
+    <span class="text-pink-400">♥</span>
+    <span>Customize</span>
+  </button>
+
+  <!-- Collapsible Floating Control Bar -->
+  <aside
+    id="control-bar"
+    class="fixed top-3 left-1/2 -translate-x-1/2 z-30 w-[94%] max-w-2xl glass-panel rounded-2xl px-3.5 py-2.5 transition-all duration-300"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <!-- Custom Message Input -->
+      <div class="flex items-center gap-2 flex-1 min-w-[190px]">
+        <label for="msg-input" class="text-xs font-medium text-pink-300 whitespace-nowrap">Message</label>
+        <input
+          id="msg-input"
+          type="text"
+          maxlength="42"
+          value="for you ♥"
+          placeholder="for you ♥"
+          class="w-full bg-black/50 text-pink-100 placeholder-zinc-500 text-xs rounded-xl px-3 py-1.5 border border-white/10 focus:outline-none focus:border-pink-400/70 transition-colors"
+        />
       </div>
-      <h1 id="question-heading">🌹🌹🌹🌹🌹🐵 Will you be my secret valentine? 🐵🌹🌹🌹🌹🌹</h1>
-      <p>(We don't have to go on a date hehe I just want to be your valentine 💐🍫🍰)</p>
-      <div class="buttons">
-        <button id="yes-button"><p>Yes</p></button>
-        <button id="no-button"><p>No</p></button>
-      </div>
-      <div class="message">
-        <h2 id="success-message">Yipeeeeeeee 😊😊😊😊</h2>
+
+      <!-- Playback & Export Actions -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button
+          id="btn-pause"
+          type="button"
+          class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 transition-colors cursor-pointer"
+        >
+          Pause
+        </button>
+
+        <button
+          id="btn-speed"
+          type="button"
+          title="Cycle spin speed"
+          class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 transition-colors cursor-pointer"
+        >
+          1.0x
+        </button>
+
+        <button
+          id="btn-fps"
+          type="button"
+          title="Toggle between original 24 FPS and smooth 60 FPS"
+          class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 transition-colors cursor-pointer"
+        >
+          24 FPS
+        </button>
+
+        <button
+          id="btn-download"
+          type="button"
+          title="Download standalone index.html for GitHub Pages"
+          class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-400/30 transition-colors cursor-pointer"
+        >
+          Download HTML
+        </button>
+
+        <button
+          id="btn-collapse"
+          type="button"
+          title="Hide controls"
+          class="p-1.5 rounded-xl text-xs text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+          aria-label="Hide controls"
+        >
+          ✕
+        </button>
       </div>
     </div>
-    <script src="public/js/script.js"></script>
-  </body>
+  </aside>
+
+  <!-- Toast Notification (replaces alert()) -->
+  <div
+    id="toast-box"
+    class="pointer-events-none fixed bottom-4 left-1/2 -translate-x-1/2 z-40 opacity-0 transition-opacity duration-300 glass-panel rounded-full px-4 py-1.5 text-xs text-pink-200"
+  ></div>
+
+  <script>
+    /**
+     * 3D ASCII Flower Bouquet — JavaScript Port
+     * Faithfully reproduces the Python 3D projection, seeded scene geometry,
+     * z-buffer occlusion, directional lighting, and xterm 256-color palette.
+     */
+    (function () {
+      "use strict";
+
+      // =========================================================================
+      // 1. CONSTANTS & PALETTES (Exact match to Python source)
+      // =========================================================================
+      const DEFAULT_FPS = 24;
+      const BASE_SPIN_SPEED = 0.6;
+      const TILT = 0.30;
+      const CAM_DIST = 4.0;
+      const NUM_HEARTS = 18;
+      const PIVOT_Y = 0.2;
+
+      const WHITE = [244, 248, 251, 254, 255, 231];
+      const PINK = [125, 162, 168, 205, 211, 218, 225];
+      const RED = [52, 88, 124, 160, 196, 203];
+      const PURPLE = [54, 91, 97, 134, 140, 183];
+      const YELLOW = [136, 178, 214, 220, 226, 229];
+      const ORANGE = [130, 166, 202, 208, 214, 216];
+      const GOLD_CENTER = [94, 136, 178, 214, 220];
+      const DARK_CENTER = [52, 58, 94, 130, 136];
+      const GREENS = [22, 28, 28, 34, 35, 71, 77, 114];
+      const PAPER = [101, 144, 187, 223, 230, 231];
+      const RIBBON = [88, 125, 161, 197, 204, 211];
+      const HEART_COLORS = [161, 197, 204, 205, 211, 218];
+      const MSG_COLORS = [161, 168, 205, 211, 218, 225, 218, 211, 205, 168];
+
+      const SHADE = ".:-=+*%@";
+      const PETAL_SHADE = "+*#%";
+
+      // Directional Light Vector: (-0.45, 0.6, 0.66) normalized
+      const _L = [-0.45, 0.6, 0.66];
+      const _n = Math.sqrt(_L[0] * _L[0] + _L[1] * _L[1] + _L[2] * _L[2]);
+      const LX = _L[0] / _n;
+      const LY = _L[1] / _n;
+      const LZ = _L[2] / _n;
+
+      const DISC_TYPES = [
+        [WHITE, GOLD_CENTER, 13],
+        [PINK, GOLD_CENTER, 8],
+        [RED, DARK_CENTER, 6],
+        [PURPLE, GOLD_CENTER, 7],
+        [YELLOW, DARK_CENTER, 12],
+        [ORANGE, DARK_CENTER, 9],
+      ];
+      const TULIP_COLORS = [RED, PINK, YELLOW];
+
+      // =========================================================================
+      // 2. XTERM 256-COLOR ANSI PALETTE LOOKUP TABLE
+      // =========================================================================
+      const ANSI_256_CSS = (function buildAnsi256Table() {
+        const table = new Array(256);
+        const system16 = [
+          "#000000", "#800000", "#008000", "#808000",
+          "#000080", "#800080", "#008080", "#c0c0c0",
+          "#808080", "#ff0000", "#00ff00", "#ffff00",
+          "#0000ff", "#ff00ff", "#00ffff", "#ffffff",
+        ];
+        for (let i = 0; i < 16; i++) {
+          table[i] = system16[i];
+        }
+        // 6x6x6 color cube (indices 16..231)
+        const levels = [0, 95, 135, 175, 215, 255];
+        for (let i = 16; i < 232; i++) {
+          const idx = i - 16;
+          const r = levels[Math.floor(idx / 36) % 6];
+          const g = levels[Math.floor(idx / 6) % 6];
+          const b = levels[idx % 6];
+          table[i] = `rgb(${r},${g},${b})`;
+        }
+        // Grayscale ramp (indices 232..255)
+        for (let i = 232; i < 256; i++) {
+          const v = 8 + (i - 232) * 10;
+          table[i] = `rgb(${v},${v},${v})`;
+        }
+        return table;
+      })();
+
+      // =========================================================================
+      // 3. SEEDED PRNG (Mulberry32 seeded with 21 for deterministic geometry)
+      // =========================================================================
+      function createSeededRng(seed) {
+        let state = seed >>> 0;
+        function next() {
+          state |= 0;
+          state = (state + 0x6D2B79F5) | 0;
+          let t = Math.imul(state ^ (state >>> 15), 1 | state);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        }
+        return {
+          random: next,
+          uniform(a, b) {
+            return a + (b - a) * next();
+          },
+        };
+      }
+
+      // =========================================================================
+      // 4. 3D VECTOR HELPERS
+      // =========================================================================
+      function norm(v) {
+        const m = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1.0;
+        return [v[0] / m, v[1] / m, v[2] / m];
+      }
+
+      function cross(a, b) {
+        return [
+          a[1] * b[2] - a[2] * b[1],
+          a[2] * b[0] - a[0] * b[2],
+          a[0] * b[1] - a[1] * b[0],
+        ];
+      }
+
+      function add(p, d, k) {
+        return [p[0] + d[0] * k, p[1] + d[1] * k, p[2] + d[2] * k];
+      }
+
+      // =========================================================================
+      // 5. BUILD 3D SCENE (Exact port of Python build_scene())
+      // =========================================================================
+      function buildScene() {
+        const rnd = createSeededRng(21);
+        const pts = [];
+        const neck = [0.0, -0.12, 0.0];
+
+        const C = [0.0, 0.12, 0.0];
+        const D = 0.64;
+        const N = 10;
+        const golden = Math.PI * (3 - Math.sqrt(5));
+        const heads = [];
+
+        for (let i = 0; i < N; i++) {
+          const el = ((88 - 60 * Math.sqrt(i / (N - 1))) * Math.PI) / 180;
+          const az = i * golden;
+          const d = [
+            Math.cos(el) * Math.cos(az),
+            Math.sin(el),
+            Math.cos(el) * Math.sin(az),
+          ];
+          const pos = add(C, d, D * rnd.uniform(0.92, 1.05));
+          heads.push([pos, norm(d)]);
+        }
+
+        const tulipSlots = new Set([3, 8]);
+        const flowers = [];
+        let discI = 0;
+
+        for (let idx = 0; idx < heads.length; idx++) {
+          const [pos, axis] = heads[idx];
+          const base = add(pos, axis, -0.03);
+          for (let j = 0; j < 70; j++) {
+            const t = j / 69;
+            const px = base[0] + (neck[0] - base[0]) * t;
+            const py = base[1] + (neck[1] - base[1]) * t;
+            const pz = base[2] + (neck[2] - base[2]) * t;
+            pts.push([px, py, pz, axis[0], 0.0, axis[2], GREENS, -0.15, true, null]);
+          }
+
+          if (tulipSlots.has(idx)) {
+            let nT = 0;
+            for (const k of tulipSlots) {
+              if (k < idx) nT++;
+            }
+            flowers.push([
+              pos,
+              "tulip",
+              TULIP_COLORS[nT % TULIP_COLORS.length],
+              null,
+              0,
+              0.11,
+              rnd.uniform(0, 6.28),
+            ]);
+          } else {
+            const [petals, center, nPet] = DISC_TYPES[discI % DISC_TYPES.length];
+            discI++;
+            flowers.push([
+              pos,
+              "disc",
+              petals,
+              center,
+              nPet,
+              rnd.uniform(0.12, 0.14),
+              rnd.uniform(0, 6.28),
+            ]);
+          }
+        }
+
+        // 8 Curled Leaves with central ribs
+        for (let i = 0; i < 8; i++) {
+          const a = ((i + 0.4) / 8) * 2 * Math.PI;
+          const c = Math.cos(a);
+          const s = Math.sin(a);
+          const base = [0.26 * c, 0.30, 0.26 * s];
+          const d = norm([c, 0.15, s]);
+          const side = [-s, 0.0, c];
+          const n = norm(cross(side, d));
+          const L = 0.30;
+          const W = 0.07;
+
+          for (let ti = 0; ti < 32; ti++) {
+            const t = ti / 31;
+            for (let wi = -5; wi <= 5; wi++) {
+              const w = wi / 5;
+              const curl = 0.025 * w * w;
+              const px =
+                base[0] +
+                d[0] * L * t +
+                side[0] * W * Math.sin(Math.PI * t) * w +
+                n[0] * curl;
+              const py =
+                base[1] +
+                d[1] * L * t -
+                0.10 * t * t +
+                n[1] * curl;
+              const pz =
+                base[2] +
+                d[2] * L * t +
+                side[2] * W * Math.sin(Math.PI * t) * w +
+                n[2] * curl;
+              const rib = wi === 0 ? -0.25 : 0.0;
+              pts.push([px, py, pz, n[0], n[1], n[2], GREENS, rib, true, null]);
+            }
+          }
+        }
+
+        // Flared Paper Cone Wrapper with ruffled top edge and fold shading
+        const y0 = -0.20;
+        const y1 = 0.30;
+        const r0 = 0.06;
+        const r1 = 0.36;
+        const k = (r1 - r0) / (y1 - y0);
+        const rings = 50;
+
+        for (let i = 0; i < rings; i++) {
+          const t = i / (rings - 1);
+          const r = r0 + (r1 - r0) * t;
+          const count = Math.max(8, Math.floor(170 * r));
+          for (let j = 0; j < count; j++) {
+            const ph = ((j + rnd.random()) / count) * 2 * Math.PI;
+            const c = Math.cos(ph);
+            const s = Math.sin(ph);
+            let y = y0 + (y1 - y0) * t;
+            if (t > 0.9) {
+              y += 0.03 * Math.sin(9 * ph);
+            }
+            const fold = 0.3 * (Math.abs(Math.sin(5 * ph)) - 0.6);
+            const nn = norm([c, -k, s]);
+            pts.push([r * c, y, r * s, nn[0], nn[1], nn[2], PAPER, fold, false, null]);
+          }
+        }
+
+        // 7 Bottom Stems
+        for (let i = 0; i < 7; i++) {
+          const a = (i / 7) * 2 * Math.PI;
+          const sx = 0.025 * Math.cos(a);
+          const sz = 0.025 * Math.sin(a);
+          for (let j = 0; j < 40; j++) {
+            const t = j / 39;
+            pts.push([
+              sx * (1 + 1.2 * t),
+              -0.20 - 0.30 * t,
+              sz * (1 + 1.2 * t),
+              Math.cos(a),
+              0.0,
+              Math.sin(a),
+              GREENS,
+              -0.1,
+              true,
+              null,
+            ]);
+          }
+        }
+
+        // Ribbon Band, Bow Loops, Trailing Tails & Center Knot
+        const by = -0.12;
+        const br = r0 + k * (by - y0) + 0.01;
+        for (let j = 0; j < 90; j++) {
+          const ph = (j / 90) * 2 * Math.PI;
+          for (const dy of [-0.012, 0.0, 0.012]) {
+            pts.push([
+              br * Math.cos(ph),
+              by + dy,
+              br * Math.sin(ph),
+              Math.cos(ph),
+              0.0,
+              Math.sin(ph),
+              RIBBON,
+              0.0,
+              false,
+              null,
+            ]);
+          }
+        }
+
+        const knot = [0.0, by, br + 0.01];
+        for (const side of [-1, 1]) {
+          for (let j = 0; j < 70; j++) {
+            const a = (j / 70) * 2 * Math.PI;
+            const lx = side * (0.07 + 0.07 * Math.cos(a));
+            const ly =
+              0.04 * Math.sin(a) +
+              (0.02 * (0.07 + 0.07 * Math.cos(a))) / 0.14;
+            for (const fill of [1.0, 0.7]) {
+              pts.push([
+                knot[0] + lx * fill,
+                knot[1] + ly * fill,
+                knot[2] + 0.01,
+                side * 0.3,
+                0.2,
+                0.93,
+                RIBBON,
+                0.1,
+                true,
+                null,
+              ]);
+            }
+          }
+          for (let j = 0; j < 30; j++) {
+            const t = j / 29;
+            pts.push([
+              knot[0] + side * 0.06 * t,
+              knot[1] - 0.15 * t,
+              knot[2] + 0.015,
+              side * 0.2,
+              0.0,
+              0.98,
+              RIBBON,
+              -0.05 + 0.05 * Math.sin(t * 9),
+              true,
+              null,
+            ]);
+          }
+        }
+
+        for (const dx of [-0.01, 0.0, 0.01]) {
+          pts.push([dx, by, knot[2] + 0.02, 0, 0, 1, RIBBON, 0.2, true, "@"]);
+        }
+
+        // 90 Twinkling Baby's-Breath Points
+        const babies = [];
+        for (let i = 0; i < 90; i++) {
+          const a = rnd.random() * 2 * Math.PI;
+          const el = rnd.uniform(0.3, 1.4);
+          const rr = rnd.uniform(0.40, 0.58);
+          babies.push([
+            rr * Math.cos(a) * Math.cos(el),
+            C[1] + rr * Math.sin(el),
+            rr * Math.sin(a) * Math.cos(el),
+            rnd.uniform(0, 6.28),
+          ]);
+        }
+
+        // 30 Ambient Sparkles
+        const sparkles = [];
+        for (let i = 0; i < 30; i++) {
+          const a = rnd.random() * 2 * Math.PI;
+          const rr = rnd.uniform(0.75, 0.95);
+          sparkles.push([
+            rr * Math.cos(a),
+            rnd.uniform(-0.3, 1.0),
+            rr * Math.sin(a),
+            rnd.uniform(0, 6.28),
+            rnd.uniform(1.5, 4.0),
+          ]);
+        }
+
+        return { pts, flowers, babies, sparkles };
+      }
+
+      // =========================================================================
+      // 6. FLOATING HEARTS SIMULATION
+      // =========================================================================
+      function randomHeartColor() {
+        return HEART_COLORS[Math.floor(Math.random() * HEART_COLORS.length)];
+      }
+
+      function updateHearts(hearts, dt) {
+        while (hearts.length < NUM_HEARTS) {
+          hearts.push([
+            Math.random(),
+            1.0 + Math.random(),
+            0.03 + Math.random() * 0.05,
+            Math.random() * 6.28,
+            randomHeartColor(),
+          ]);
+        }
+        for (let i = 0; i < hearts.length; i++) {
+          const h = hearts[i];
+          h[1] -= h[2] * dt;
+          if (h[1] < 0) {
+            h[0] = Math.random();
+            h[1] = 1.0;
+            h[4] = randomHeartColor();
+          }
+        }
+      }
+
+      // =========================================================================
+      // 7. 3D RENDERER WITH Z-BUFFER OCCLUSION
+      // =========================================================================
+      let gridCols = 0;
+      let gridRows = 0;
+      let charsBuf = null;
+      let colorsBuf = null;
+      let zBuf = null;
+
+      function ensureBuffers(cols, rows) {
+        if (cols === gridCols && rows === gridRows && charsBuf) return;
+        gridCols = cols;
+        gridRows = rows;
+        const total = cols * rows;
+        charsBuf = new Array(total);
+        colorsBuf = new Int32Array(total);
+        zBuf = new Float64Array(total);
+      }
+
+      function escapeHtmlChar(ch) {
+        if (ch === "&") return "&amp;";
+        if (ch === "<") return "&lt;";
+        if (ch === ">") return "&gt;";
+        return ch;
+      }
+
+      function renderFrame(scene, t, cols, rows, hearts, spinSpeed, messageText) {
+        ensureBuffers(cols, rows);
+
+        const total = cols * rows;
+        for (let i = 0; i < total; i++) {
+          charsBuf[i] = " ";
+          colorsBuf[i] = 0;
+          zBuf[i] = -1e9;
+        }
+
+        const viewRows = rows - 2;
+        const scale = Math.max(1.0, Math.min((viewRows - 2) / 1.45, (cols - 2) / 2.7));
+        const sxScale = scale * 2.0;
+        const cx = cols / 2;
+        const cy = 1 + 0.78 * scale;
+
+        const ang = t * spinSpeed;
+        const ca = Math.cos(ang);
+        const sa = Math.sin(ang);
+        const ct = Math.cos(TILT);
+        const st = Math.sin(TILT);
+
+        function plot(col, row, z, ch, color) {
+          if (row >= 0 && row < viewRows && col >= 0 && col < cols) {
+            const idx = row * cols + col;
+            if (z > zBuf[idx]) {
+              zBuf[idx] = z;
+              charsBuf[idx] = ch;
+              colorsBuf[idx] = color;
+            }
+          }
+        }
+
+        // 1. Background floating hearts
+        for (let i = 0; i < hearts.length; i++) {
+          const [hx, hy, , phase, color] = hearts[i];
+          const rawCol = Math.floor((hx + 0.015 * Math.sin(t * 1.2 + phase)) * cols);
+          const col = ((rawCol % cols) + cols) % cols;
+          const row = Math.floor(hy * viewRows);
+          plot(col, row, -50, "♥", color);
+        }
+
+        // 2. 3D Point Cloud (stems, leaves, paper cone, ribbon, bow)
+        const pts = scene.pts;
+        for (let i = 0; i < pts.length; i++) {
+          const pt = pts[i];
+          const x = pt[0], y = pt[1], z = pt[2];
+          const nx = pt[3], ny = pt[4], nz = pt[5];
+          const pal = pt[6], tone = pt[7], twoSided = pt[8], override = pt[9];
+
+          const xr = x * ca - z * sa;
+          const zr = x * sa + z * ca;
+          const yp = y - PIVOT_Y;
+          const yt = yp * ct - zr * st;
+          const zt = yp * st + zr * ct;
+          const f = CAM_DIST / (CAM_DIST - zt);
+
+          const col = Math.floor(cx + xr * f * sxScale);
+          const row = Math.floor(cy - yt * f * scale);
+
+          const nxr = nx * ca - nz * sa;
+          const nzr = nx * sa + nz * ca;
+          const nyt = ny * ct - nzr * st;
+          const nzt = ny * st + nzr * ct;
+
+          let dot = nxr * LX + nyt * LY + nzt * LZ;
+          if (twoSided && dot < 0) {
+            dot = -dot * 0.55;
+          }
+          let b = 0.25 + 0.75 * Math.max(0.0, dot) + tone;
+          b = Math.min(0.999, Math.max(0.0, b));
+
+          let ch;
+          if (override === "P") {
+            ch = PETAL_SHADE[Math.floor(b * PETAL_SHADE.length)];
+          } else {
+            ch = override || SHADE[Math.floor(b * SHADE.length)];
+          }
+          const color = pal[Math.floor(b * pal.length)];
+          plot(col, row, zt, ch, color);
+        }
+
+        // 3. Disc & Tulip Flower Heads
+        const flowers = scene.flowers;
+        for (let i = 0; i < flowers.length; i++) {
+          const [pos, kind, pal, cpal, nPet, R, seed] = flowers[i];
+          const x = pos[0], y = pos[1], z = pos[2];
+
+          const xr = x * ca - z * sa;
+          const zr = x * sa + z * ca;
+          const yp = y - PIVOT_Y;
+          const yt = yp * ct - zr * st;
+          const zt = yp * st + zr * ct;
+          const f = CAM_DIST / (CAM_DIST - zt);
+
+          const fx = cx + xr * f * sxScale;
+          const fy = cy - yt * f * scale;
+          const rx = R * f * sxScale;
+          const ry = R * f * scale;
+
+          const dim = -0.4 * (1 - Math.min(1.0, Math.max(0.0, (zt + 0.6) / 1.2)));
+          const rot = seed + ang * 0.7;
+
+          const rMin = Math.floor(fy - ry) - 1;
+          const rMax = Math.floor(fy + ry) + 1;
+          const cMin = Math.floor(fx - rx) - 1;
+          const cMax = Math.floor(fx + rx) + 1;
+
+          for (let row = rMin; row <= rMax; row++) {
+            const dy = (row + 0.5 - fy) / ry;
+            for (let col = cMin; col <= cMax; col++) {
+              const dx = (col + 0.5 - fx) / rx;
+
+              if (kind === "disc") {
+                const s = Math.sqrt(dx * dx + dy * dy);
+                if (s > 1.0) continue;
+
+                if (s < 0.3) {
+                  let b = 0.55 - 0.35 * dx - 0.35 * dy + dim;
+                  b = Math.min(0.999, Math.max(0.0, b));
+                  plot(
+                    col,
+                    row,
+                    zt + 0.06,
+                    s < 0.17 ? "@" : "o",
+                    cpal[Math.floor(b * cpal.length)]
+                  );
+                  continue;
+                }
+
+                const ph = Math.atan2(dy, dx);
+                const reach =
+                  0.32 + 0.68 * Math.pow(Math.abs(Math.cos((nPet * (ph + rot)) / 2)), 0.7);
+                if (s > reach) continue;
+
+                const edge = s > reach - 0.14 ? -0.22 : 0.0;
+                let b = 0.62 - 0.22 * dx - 0.28 * dy + 0.12 * s + edge + dim;
+                b = Math.min(0.999, Math.max(0.0, b));
+                plot(
+                  col,
+                  row,
+                  zt + 0.04 * (1 - s),
+                  PETAL_SHADE[Math.floor(b * PETAL_SHADE.length)],
+                  pal[Math.floor(b * pal.length)]
+                );
+              } else {
+                // Tulip Cup Shading
+                const v = (1 - dy) / 2;
+                if (v < 0 || v > 1) continue;
+                const hw = 0.62 * Math.sin(Math.PI * 0.5 * Math.min(1.0, v * 1.5 + 0.05));
+                if (hw <= 0 || Math.abs(dx) > hw) continue;
+                const xn = dx / hw;
+                const topWave = Math.cos(1.5 * Math.PI * xn);
+                if (v > 0.72 + 0.28 * topWave * topWave) continue;
+                const seam = Math.abs(Math.abs(xn) - 0.33) < 0.12 && v > 0.3 ? -0.25 : 0.0;
+                let b = 0.55 - 0.3 * xn + 0.1 * v + seam + dim;
+                b = Math.min(0.999, Math.max(0.0, b));
+                plot(
+                  col,
+                  row,
+                  zt + 0.03,
+                  PETAL_SHADE[Math.floor(b * PETAL_SHADE.length)],
+                  pal[Math.floor(b * pal.length)]
+                );
+              }
+            }
+          }
+        }
+
+        // 4. Baby's-breath Twinkling Points
+        const babies = scene.babies;
+        for (let i = 0; i < babies.length; i++) {
+          const [x, y, z, phase] = babies[i];
+          const xr = x * ca - z * sa;
+          const zr = x * sa + z * ca;
+          const yp = y - PIVOT_Y;
+          const yt = yp * ct - zr * st;
+          const zt = yp * st + zr * ct;
+          const f = CAM_DIST / (CAM_DIST - zt);
+          const col = Math.floor(cx + xr * f * sxScale);
+          const row = Math.floor(cy - yt * f * scale);
+
+          const star = Math.sin(t * 2 + phase) > 0.6;
+          plot(col, row, zt + 0.02, star ? "*" : "·", star ? 231 : 255);
+        }
+
+        // 5. Ambient Sparkles
+        const sparkles = scene.sparkles;
+        for (let i = 0; i < sparkles.length; i++) {
+          const [x, y, z, phase, speed] = sparkles[i];
+          const xr = x * ca - z * sa;
+          const zr = x * sa + z * ca;
+          const yp = y - PIVOT_Y;
+          const yt = yp * ct - zr * st;
+          const zt = yp * st + zr * ct;
+          const f = CAM_DIST / (CAM_DIST - zt);
+          const col = Math.floor(cx + xr * f * sxScale);
+          const row = Math.floor(cy - yt * f * scale);
+
+          const tw = Math.sin(t * speed + phase);
+          if (tw > 0.85) {
+            plot(col, row, zt, "*", 231);
+          } else if (tw > 0.4) {
+            plot(col, row, zt, "+", 225);
+          } else if (tw > 0.0) {
+            plot(col, row, zt, "·", 218);
+          }
+        }
+
+        // 6. Centered Custom Message with Cycling Pink/Magenta Colors
+        const msg = messageText || "";
+        const mrow = rows - 2;
+        if (mrow >= 0 && msg.length > 0) {
+          const start = Math.max(0, Math.floor((cols - msg.length) / 2));
+          const shift = Math.floor(t * 6);
+          for (let i = 0; i < msg.length; i++) {
+            if (start + i < cols) {
+              const idx = mrow * cols + (start + i);
+              charsBuf[idx] = msg[i];
+              colorsBuf[idx] = MSG_COLORS[(i + shift) % MSG_COLORS.length];
+            }
+          }
+        }
+
+        // 7. Subtle Attribution Hint on Bottom Row
+        const hint = ":)";
+        const hrow = rows - 1;
+        if (hrow >= 0) {
+          const hstart = Math.max(0, Math.floor((cols - hint.length) / 2));
+          for (let i = 0; i < hint.length; i++) {
+            if (hstart + i < cols) {
+              const idx = hrow * cols + (hstart + i);
+              charsBuf[idx] = hint[i];
+              colorsBuf[idx] = 238;
+            }
+          }
+        }
+
+        // 8. Serialize Frame Buffer into Coalesced Colored HTML Spans
+        const htmlLines = new Array(rows);
+        for (let r = 0; r < rows; r++) {
+          const rowOffset = r * cols;
+          let lineHtml = "";
+          let activeColor = -1;
+          let run = "";
+
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOffset + c;
+            const ch = charsBuf[idx];
+            const colCode = ch === " " ? activeColor : colorsBuf[idx];
+
+            if (ch !== " " && colCode !== activeColor) {
+              if (run.length > 0) {
+                if (activeColor === -1) {
+                  lineHtml += run;
+                } else {
+                  lineHtml += `<span style="color:${ANSI_256_CSS[activeColor]}">${run}</span>`;
+                }
+                run = "";
+              }
+              activeColor = colCode;
+            }
+            run += escapeHtmlChar(ch);
+          }
+
+          if (run.length > 0) {
+            if (activeColor === -1) {
+              lineHtml += run;
+            } else {
+              lineHtml += `<span style="color:${ANSI_256_CSS[activeColor]}">${run}</span>`;
+            }
+          }
+          htmlLines[r] = lineHtml;
+        }
+
+        return htmlLines.join("\n");
+      }
+
+      // =========================================================================
+      // 8. RESPONSIVE TERMINAL GRID SIZING & ANIMATION LOOP
+      // =========================================================================
+      const stageEl = document.getElementById("terminal-stage");
+      const probeEl = document.getElementById("glyph-probe");
+      const containerEl = document.getElementById("viewport-container");
+
+      let cols = 80;
+      let rows = 30;
+
+      function measureTerminalGrid() {
+        const vw = containerEl.clientWidth || window.innerWidth;
+        const vh = containerEl.clientHeight || window.innerHeight;
+
+        // Scale font size gently based on viewport so small mobile screens still fit plenty of cells
+        const fontSize = vw < 480 ? 10 : vw < 768 ? 12 : 14;
+        stageEl.style.fontSize = `${fontSize}px`;
+        probeEl.style.fontSize = `${fontSize}px`;
+
+        const rect = probeEl.getBoundingClientRect();
+        const charW = rect.width > 0 ? rect.width / 10 : fontSize * 0.6;
+        const charH = rect.height > 0 ? rect.height : fontSize * 1.15;
+
+        cols = Math.max(24, Math.floor((vw - 8) / charW));
+        rows = Math.max(14, Math.floor((vh - 8) / charH));
+      }
+
+      window.addEventListener("resize", measureTerminalGrid);
+
+      // Interactive Controls State
+      const scene = buildScene();
+      const hearts = [];
+
+      let paused = false;
+      const speedMultipliers = [1.0, 1.75, 0.4];
+      let speedIdx = 0;
+      let targetFps = DEFAULT_FPS;
+      let customMessage = "ฉันชอบเธอนะ นานะ ♥";
+
+      let simTime = 0;
+      let lastFrameTimestamp = null;
+      let accumulator = 0;
+
+      function animate(nowMs) {
+        requestAnimationFrame(animate);
+
+        if (lastFrameTimestamp === null) {
+          lastFrameTimestamp = nowMs;
+        }
+        const rawDt = Math.min(0.1, (nowMs - lastFrameTimestamp) / 1000);
+        lastFrameTimestamp = nowMs;
+
+        const frameInterval = 1 / targetFps;
+        accumulator += rawDt;
+
+        if (accumulator < frameInterval) {
+          return;
+        }
+
+        const stepDt = accumulator;
+        accumulator %= frameInterval;
+
+        if (!paused) {
+          simTime += stepDt;
+          updateHearts(hearts, stepDt);
+        }
+
+        const effectiveSpin = BASE_SPIN_SPEED * speedMultipliers[speedIdx];
+        stageEl.innerHTML = renderFrame(
+          scene,
+          simTime,
+          cols,
+          rows,
+          hearts,
+          effectiveSpin,
+          customMessage
+        );
+      }
+
+      // =========================================================================
+      // 9. UI EVENT LISTENERS & TOAST HELPER
+      // =========================================================================
+      const msgInput = document.getElementById("msg-input");
+      const btnPause = document.getElementById("btn-pause");
+      const btnSpeed = document.getElementById("btn-speed");
+      const btnFps = document.getElementById("btn-fps");
+      const btnDownload = document.getElementById("btn-download");
+      const btnCollapse = document.getElementById("btn-collapse");
+      const controlBar = document.getElementById("control-bar");
+      const openControlsBtn = document.getElementById("open-controls-btn");
+      const toastBox = document.getElementById("toast-box");
+
+      let toastTimer = null;
+      function showToast(text) {
+        toastBox.textContent = text;
+        toastBox.classList.remove("opacity-0");
+        toastBox.classList.add("opacity-100");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastBox.classList.remove("opacity-100");
+          toastBox.classList.add("opacity-0");
+        }, 2600);
+      }
+
+      // Support ?msg=... URL query parameter for easy shareable GitHub Pages links
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlMsg = params.get("msg");
+        if (urlMsg && urlMsg.trim().length > 0) {
+          customMessage = urlMsg.trim().slice(0, 42);
+          msgInput.value = customMessage;
+        }
+      } catch (e) {
+        // Ignore URL parsing errors in restricted contexts
+      }
+
+      msgInput.addEventListener("input", (e) => {
+        customMessage = e.target.value;
+      });
+
+      btnPause.addEventListener("click", () => {
+        paused = !paused;
+        btnPause.textContent = paused ? "Resume" : "Pause";
+        btnPause.classList.toggle("text-pink-300", paused);
+      });
+
+      btnSpeed.addEventListener("click", () => {
+        speedIdx = (speedIdx + 1) % speedMultipliers.length;
+        btnSpeed.textContent = `${speedMultipliers[speedIdx].toFixed(2).replace(/\.00$/, ".0")}x`;
+      });
+
+      btnFps.addEventListener("click", () => {
+        targetFps = targetFps === 24 ? 60 : 24;
+        btnFps.textContent = `${targetFps} FPS`;
+      });
+
+      btnCollapse.addEventListener("click", () => {
+        controlBar.classList.add("hidden");
+        openControlsBtn.classList.remove("hidden");
+      });
+
+      openControlsBtn.addEventListener("click", () => {
+        openControlsBtn.classList.add("hidden");
+        controlBar.classList.remove("hidden");
+      });
+
+      btnDownload.addEventListener("click", () => {
+        try {
+          // Bake current custom message into the downloaded HTML default
+          const docClone = document.documentElement.cloneNode(true);
+          const clonedInput = docClone.querySelector("#msg-input");
+          if (clonedInput) {
+            clonedInput.setAttribute("value", customMessage);
+          }
+          const htmlContent = "<!DOCTYPE html>\n" + docClone.outerHTML;
+          const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "index.html";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showToast("Downloaded index.html ready for GitHub Pages!");
+        } catch (err) {
+          showToast("Could not trigger download in this preview.");
+        }
+      });
+
+      // Initialize layout and start animation loop on load
+      window.addEventListener("load", () => {
+        measureTerminalGrid();
+        requestAnimationFrame(animate);
+      });
+    })();
+  </script>
+</body>
 </html>
